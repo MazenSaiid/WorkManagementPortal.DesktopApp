@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell x:Class="WorkTrackerDesktop.AppShell"
+       xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:local="clr-namespace:WorkTrackerDesktop.Views"
+       Shell.FlyoutBehavior="Disabled"
+       Title="WorkTrackerDesktop">
+
+    <!-- Route to navigate to LoginPage -->
+    <ShellContent
+        Title="Login"
+        ContentTemplate="{DataTemplate local:LoginPage}"
+        Route="LoginPage" />
+
+    <!-- Route to navigate to MainPage (Work Tracking) -->
+    <ShellContent
+        Title="Work Tracking"
+        ContentTemplate="{DataTemplate local:MainPage}"
+        Route="MainPage" />
+
+</Shell>

@@ -1,0 +1,134 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WorkTrackerDesktop.Views.MainPage"
+             BackgroundColor="#F4F4F9">
+
+    <VerticalStackLayout Spacing="20" Padding="30,50">
+        <!-- Greeting Message -->
+        <Label Text="Welcome Back!" 
+               x:Name="GreetingMessage"
+               FontSize="Small" 
+               FontAttributes="Bold"
+               HorizontalOptions="Center" 
+               VerticalOptions="Center" 
+               Margin="0,0,0,20"/>
+
+        <!-- Work and Pause Timer Section -->
+        <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
+            <!-- Work Timer -->
+            <StackLayout VerticalOptions="Center">
+                <Label Text="Total Work Time" 
+                       FontSize="Small"
+                       HorizontalOptions="Center" 
+                       TextColor="#4CAF50"/>
+                <Label x:Name="WorkTimerLabel" 
+                       Text="00:00:00" 
+                       FontSize="Small" 
+                       HorizontalOptions="Center" 
+                       TextColor="#333333"/>
+            </StackLayout>
+
+            <!-- Pause Timer -->
+            <StackLayout VerticalOptions="Center">
+                <Label Text="Total Paused Time" 
+                       FontSize="Small" 
+                       HorizontalOptions="Center" 
+                       TextColor="#d9534f"/>
+                <Label x:Name="PauseTimerLabel" 
+                       Text="00:00:00" 
+                       FontSize="Small" 
+                       HorizontalOptions="Center" 
+                       TextColor="#333333"/>
+            </StackLayout>
+        </HorizontalStackLayout>
+
+        <!-- Start, Pause, Resume, Stop Buttons -->
+        <StackLayout Spacing="15" HorizontalOptions="Center">
+            <Button Text="Start" 
+                    FontSize="Small"
+                    Clicked="OnStartClicked" 
+                    x:Name="StartButton"
+                    BackgroundColor="#0056b3" 
+                    TextColor="White"
+                    Padding="10,10"
+                    CornerRadius="8"/>
+
+                <Button Text="Pause" 
+                    Clicked="OnPauseClicked" 
+                    x:Name="PauseButton" 
+                    FontSize="Small"
+                    IsVisible="False"
+                    BackgroundColor="#f0ad4e" 
+                    TextColor="White"
+                    Padding="10,10"
+                    CornerRadius="8"/>
+
+                    <Button Text="Resume" 
+                    Clicked="OnResumeClicked" 
+                    x:Name="ResumeButton" 
+                    FontSize="Small"
+                    IsVisible="False"
+                    BackgroundColor="#4CAF50" 
+                    TextColor="White"
+                    Padding="10,10"
+                    CornerRadius="8"/>
+
+                        <Button Text="Stop" 
+                    Clicked="OnStopClicked" 
+                    x:Name="StopButton" 
+                    IsVisible="False"
+                    FontSize="Small"
+                    BackgroundColor="#d9534f"
+                    TextColor="White"
+                    Padding="10,10"
+                    CornerRadius="8"/>
+        </StackLayout>
+
+        <!-- Pause Type Picker (Dropdown) -->
+        <Picker x:Name="PausePicker"
+                Title="Select Pause Type"
+                FontSize="Small"
+                IsVisible="False"
+                ItemsSource="{Binding PauseTypes}"
+                SelectedItem="{Binding SelectedPauseType}" 
+                Margin="0,20,0,0"
+                BackgroundColor="#FFFFFF"
+                TextColor="#333333"
+                />
+
+        <!-- Finished Work Message -->
+        <Label Text="Thank You for Your Valuable Time Today!" 
+               x:Name="FinishedWorkMessage"
+               IsVisible="False"
+               FontSize="24" 
+               FontAttributes="Bold"
+               HorizontalOptions="Center" 
+               VerticalOptions="Center" 
+               Margin="0,30,0,20"
+               TextColor="#4CAF50"/>
+
+        <!-- Buttons (View Report and Logout) -->
+        <Grid ColumnDefinitions="*,*"   HorizontalOptions="FillAndExpand">
+            <Button Text="View My Work Report" 
+                    Clicked="OnViewReportClicked" 
+                    BackgroundColor="#0056b3" 
+                TextColor="White"
+                    FontSize="Small"
+                    Margin="10"
+                    Padding="12,15"
+                    CornerRadius="10"
+                    Grid.Column="0"/>
+
+                <Button Text="Logout" 
+                    FontSize="Small"
+                    Clicked="OnLogoutClicked" 
+                    BackgroundColor="#0056b3" 
+                    TextColor="White"
+                    Margin="10"
+                    Padding="12,15"
+                    CornerRadius="10"
+                    Grid.Column="1"/>
+        </Grid>
+    </VerticalStackLayout>
+</ContentPage>
