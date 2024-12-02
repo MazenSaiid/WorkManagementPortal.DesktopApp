@@ -1,23 +1,27 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Net.Http;
+using System.Net.NetworkInformation; // For checking internet connection
 using System.Threading.Tasks;
 using System.Timers;
+using System.Windows.Forms;
 
 namespace WorkTrackerDesktop.Services
 {
     public class OfflineSyncService
     {
         private readonly HttpClient _httpClient;
-        private const string WorkSessionUrl = "https://your-api-endpoint.com/work-session";
-        private const string ScreenshotUrl = "https://your-api-endpoint.com/upload-screenshot"; // For screenshots
+        private const string ScreenshotUrl = "https://localhost:7119/api/ScreenshotTrackings/";
         private System.Timers.Timer _syncTimer;
 
         public OfflineSyncService()
         {
             _httpClient = new HttpClient();
-            _syncTimer = new System.Timers.Timer(300000); // Sync every 5 minutes
-            _syncTimer.Elapsed += (sender, e) => SyncDataAsync();
+            _syncTimer = new System.Timers.Timer(60000); // Sync every minute (60 seconds)
+            _syncTimer.Elapsed += async (sender, e) => await CaptureAndSyncScreenshotAsync(); // Capture and sync every minute
         }
 
         public void StartPeriodicSync()
@@ -25,54 +29,50 @@ namespace WorkTrackerDesktop.Services
             _syncTimer.Start();
         }
 
-        private async Task SyncDataAsync()
+        // Method to check if there is an active internet connection
+        private bool IsInternetAvailable()
         {
             try
             {
-                // Sync work session data
-                var workSessions = GetPendingWorkSessions(); // This method reads data stored locally
-                foreach (var session in workSessions)
-                {
-                    await UploadWorkSessionData(session);
-                }
+                // Check if any network is available
+                return NetworkInterface.GetIsNetworkAvailable();
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
-                // Sync screenshots
-                var screenshotPaths = GetPendingScreenshots(); // This method reads paths of pending screenshots
-                foreach (var screenshotPath in screenshotPaths)
+        // This method will capture the screenshot and sync it (upload or save for later)
+        private async Task CaptureAndSyncScreenshotAsync()
+        {
+            try
+            {
+                // Capture a screenshot every minute
+                string screenshotPath = CaptureScreenshot();
+
+                // Check if internet is available
+                if (IsInternetAvailable())
                 {
+                    // If internet is available, upload the screenshot
                     await UploadScreenshotData(screenshotPath);
                 }
+                else
+                {
+                    // If no internet, save the screenshot for later upload
+                    SaveScreenshotForLater(screenshotPath);
+                }
+
+                // Sync any pending screenshots (those saved when offline)
+                await SyncPendingScreenshots();
             }
             catch (Exception ex)
             {
-                // Log errors, or show messages as needed
                 Console.WriteLine($"Error during periodic sync: {ex.Message}");
             }
         }
 
-        private async Task UploadWorkSessionData(string workSession)
-        {
-            try
-            {
-                var content = new StringContent(workSession); // You would serialize your work session data here
-                content.Headers.Add("Content-Type", "application/json");
-
-                var response = await _httpClient.PostAsync(WorkSessionUrl, content);
-                if (response.IsSuccessStatusCode)
-                {
-                    Console.WriteLine("Work session data uploaded successfully.");
-                }
-                else
-                {
-                    Console.WriteLine("Failed to upload work session data.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error uploading work session data: {ex.Message}");
-            }
-        }
-
+        // Upload the screenshot to the server
         private async Task UploadScreenshotData(string screenshotPath)
         {
             try
@@ -86,7 +86,7 @@ namespace WorkTrackerDesktop.Services
                 if (response.IsSuccessStatusCode)
                 {
                     Console.WriteLine("Screenshot uploaded successfully.");
-                    File.Delete(screenshotPath); // Delete the local screenshot after successful upload
+                    File.Delete(screenshotPath); // Delete the screenshot after successful upload
                 }
                 else
                 {
@@ -99,17 +99,96 @@ namespace WorkTrackerDesktop.Services
             }
         }
 
-        // Methods to fetch locally saved sessions and screenshots:
-        private IEnumerable<string> GetPendingWorkSessions()
+        // Save the screenshot for later upload when there's no internet
+        private void SaveScreenshotForLater(string screenshotPath)
         {
-            // Load work session data from a local file or database
-            return File.ReadAllLines(Path.Combine(FileSystem.AppDataDirectory, "pending_sessions.txt"));
+            string pendingFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "pending_screenshots.txt");
+            File.AppendAllText(pendingFilePath, screenshotPath + Environment.NewLine);
+            Console.WriteLine($"Screenshot saved for later upload: {screenshotPath}");
         }
 
+        // Sync the pending screenshots (upload all when the internet is available)
+        private async Task SyncPendingScreenshots()
+        {
+            try
+            {
+                var screenshotPaths = GetPendingScreenshots(); // Read paths of pending screenshots
+                foreach (var screenshotPath in screenshotPaths)
+                {
+                    if (IsInternetAvailable())
+                    {
+                        // If internet is available, upload the screenshot
+                        await UploadScreenshotData(screenshotPath);
+
+                        // After successful upload, delete the local file
+                        DeleteLocalScreenshot(screenshotPath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error syncing pending screenshots: {ex.Message}");
+            }
+        }
+
+        // Get the list of paths of all pending screenshots
         private IEnumerable<string> GetPendingScreenshots()
         {
-            // Load screenshot paths from a local file
-            return File.ReadAllLines(Path.Combine(FileSystem.AppDataDirectory, "pending_screenshots.txt"));
+            string pendingFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "pending_screenshots.txt");
+            if (!File.Exists(pendingFilePath))
+            {
+                return new List<string>(); // No pending screenshots
+            }
+
+            return File.ReadAllLines(pendingFilePath);
+        }
+
+        // Delete the screenshot file after upload
+        private void DeleteLocalScreenshot(string screenshotPath)
+        {
+            try
+            {
+                if (File.Exists(screenshotPath))
+                {
+                    File.Delete(screenshotPath); // Delete the screenshot file after successful upload
+                    Console.WriteLine($"Local screenshot file deleted: {screenshotPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting local screenshot: {ex.Message}");
+            }
+        }
+
+        // Capture a screenshot and save it locally
+        public string CaptureScreenshot()
+        {
+            try
+            {
+                var screenWidth = Screen.PrimaryScreen.Bounds.Width;
+                var screenHeight = Screen.PrimaryScreen.Bounds.Height;
+                // Capture the screenshot of the primary screen
+                using (Bitmap screenshot = new Bitmap(screenWidth, screenHeight))
+                {
+                    using (Graphics g = Graphics.FromImage(screenshot))
+                    {
+                        g.CopyFromScreen(0, 0, 0, 0, screenshot.Size);
+                    }
+
+                    // Save the screenshot locally with a timestamp
+                    string screenshotPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "screenshot_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png");
+                    screenshot.Save(screenshotPath, System.Drawing.Imaging.ImageFormat.Png);
+
+                    Console.WriteLine($"Screenshot captured and saved to: {screenshotPath}");
+
+                    return screenshotPath;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error capturing screenshot: {ex.Message}");
+                return string.Empty;
+            }
         }
     }
 }

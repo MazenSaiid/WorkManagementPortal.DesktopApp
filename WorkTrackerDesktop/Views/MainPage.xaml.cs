@@ -32,10 +32,9 @@ namespace WorkTrackerDesktop.Views
             _offlineSyncService = new OfflineSyncService();
             _screenshotService = new ScreenshotService();
             PauseTypes = new ObservableCollection<string> { "Break", "Meeting", "Bathroom", "Other" };
-            _offlineSyncService.StartPeriodicSync(); // Sync every 5 minutes
+            _offlineSyncService.StartPeriodicSync(); // Sync every minute
         }
-
-        private void OnStartClicked(object sender, EventArgs e)
+        private async Task OnStartClickedAsync(object sender, EventArgs e)
         {
             // Initialize the work timer if not already initialized
             if (_workTimer == null)
@@ -43,44 +42,60 @@ namespace WorkTrackerDesktop.Views
                 _workTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
                 _workTimer.Elapsed += OnWorkTimerElapsed;
             }
+            var response = await _workTimerService.StartAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                _workTimer.Start();  // Start work timer
+                UpdateGreetingMessage();  // Update greeting message
 
-            _workTimer.Start();  // Start work timer
-            UpdateGreetingMessage();  // Update greeting message
-
-            // Update UI for Start/Pause
-            StartButton.IsVisible = false;
-            PauseButton.IsVisible = true;
-            StopButton.IsVisible = true;
-            PausePicker.IsVisible = true;
-            PausePicker.ItemsSource = PauseTypes;
+                // Update UI for Start/Pause
+                StartButton.IsVisible = false;
+                PauseButton.IsVisible = true;
+                StopButton.IsVisible = true;
+                PausePicker.IsVisible = true;
+                PausePicker.ItemsSource = PauseTypes;
+            }
+            else
+            {
+                await DisplayAlert("Error", "There was an issue with the Starting work session. Please try again.", "OK");
+            }
+               
         }
 
-        private void OnPauseClicked(object sender, EventArgs e)
+        private async Task OnPauseClickedAsync(object sender, EventArgs e)
         {
             if (PausePicker.SelectedItem == null)
             {
                 DisplayAlert("Error", "Please select a pause type before pausing.", "OK");
                 return;
             }
-
-            _selectedPauseType = PausePicker.SelectedItem.ToString();
-
-            // Pause work timer and start pause timer
-            _workTimer.Stop();
-            _isPaused = true;
-
-            if (_pauseTimer == null)
+            var response = await _workTimerService.PauseAsync();
+            if (response.IsSuccessStatusCode)
             {
-                _pauseTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
-                _pauseTimer.Elapsed += OnPauseTimerElapsed;
+                _selectedPauseType = PausePicker.SelectedItem.ToString();
+
+                // Pause work timer and start pause timer
+                _workTimer.Stop();
+                _isPaused = true;
+
+                if (_pauseTimer == null)
+                {
+                    _pauseTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
+                    _pauseTimer.Elapsed += OnPauseTimerElapsed;
+                }
+
+                _pauseTimer.Start();  // Start the pause timer
+
+                // Update UI for Pause/Resume
+                PauseButton.IsVisible = false;
+                PausePicker.IsVisible = false;
+                ResumeButton.IsVisible = true;
             }
-
-            _pauseTimer.Start();  // Start the pause timer
-
-            // Update UI for Pause/Resume
-            PauseButton.IsVisible = false;
-            PausePicker.IsVisible = false;
-            ResumeButton.IsVisible = true;
+            else
+            {
+                await DisplayAlert("Error", "There was an issue with Pausing. Please try again.", "OK");
+            }
+            
         }
         private async void OnLogoutClicked(object sender, EventArgs e)
         {
@@ -88,22 +103,35 @@ namespace WorkTrackerDesktop.Views
 
             if (responseMessage.IsSuccessStatusCode)
             {
-                // Navigate to MainPage (Work Tracking)
-                await Shell.Current.GoToAsync("//MainPage");
+                // Navigate to LoginPage
+                await Shell.Current.GoToAsync("//LoginPage");
+            }
+            else
+            {
+                await DisplayAlert("Error", "There was an issue with Logout. Please try again.", "OK");
             }
         }
-        private void OnResumeClicked(object sender, EventArgs e)
+        private async void OnResumeClicked(object sender, EventArgs e)
         {
-            _workTimer.Start();  // Resume work timer
-            _isPaused = false;
+            var response = await _workTimerService.ResumeAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                _workTimer.Start();  // Resume work timer
+                _isPaused = false;
 
-            // Stop the pause timer and reset paused time
-            _pauseTimer.Stop();
+                // Stop the pause timer and reset paused time
+                _pauseTimer.Stop();
 
-            // Update UI for Pause/Resume
-            ResumeButton.IsVisible = false;
-            PauseButton.IsVisible = true;
-            PausePicker.IsVisible = true;
+                // Update UI for Pause/Resume
+                ResumeButton.IsVisible = false;
+                PauseButton.IsVisible = true;
+                PausePicker.IsVisible = true;
+            }
+            else
+            {
+                await DisplayAlert("Error", "There was an issue with Resuming. Please try again.", "OK");
+            }
+            
         }
 
         private async void OnStopClicked(object sender, EventArgs e)
@@ -111,26 +139,32 @@ namespace WorkTrackerDesktop.Views
             var confirm = await DisplayAlert("Confirm", "Are you sure you want to stop your work for today?", "Yes", "No");
             if (confirm)
             {
-                // Display message upon confirmation
-                await DisplayAlert("Work Completed", "You've completed your work today. Great job!", "OK");
+                var response = await _workTimerService.ResumeAsync();
+                if (response.IsSuccessStatusCode)
+                {
+                    _workTimer.Stop();  // Stop the work timer
 
-                _workTimer.Stop();  // Stop the work timer
+                    TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);
+                    WorkTimerLabel.Text = workTime.ToString(@"hh\:mm\:ss");
 
-                TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);
-                WorkTimerLabel.Text = workTime.ToString(@"hh\:mm\:ss");
+                    TimeSpan pauseTime = TimeSpan.FromSeconds(_pausedTimeInSeconds);
+                    WorkTimerLabel.Text = pauseTime.ToString(@"hh\:mm\:ss");
 
-                TimeSpan pauseTime = TimeSpan.FromSeconds(_pausedTimeInSeconds);
-                WorkTimerLabel.Text = pauseTime.ToString(@"hh\:mm\:ss");
+                    _elapsedTimeInSeconds = 0;  // Reset work time
+                    _pausedTimeInSeconds = 0;  // Reset paused time
 
-                _elapsedTimeInSeconds = 0;  // Reset work time
-                _pausedTimeInSeconds = 0;  // Reset paused time
-
-                // Update UI to show total time worked and paused
-                StopButton.IsVisible = false;
-                PauseButton.IsVisible = false;
-                PausePicker.IsVisible = false;
-                FinishedWorkMessage.IsVisible = true;
-
+                    // Update UI to show total time worked and paused
+                    StopButton.IsVisible = false;
+                    PauseButton.IsVisible = false;
+                    PausePicker.IsVisible = false;
+                    FinishedWorkMessage.IsVisible = true;
+                    // Display message upon confirmation
+                    await DisplayAlert("Work Completed", "You've completed your work today. Great job!", "OK");
+                }
+                else
+                {
+                    await DisplayAlert("Error", "There was an issue with Stoping. Please try again.", "OK");
+                }
             }
         }
 
