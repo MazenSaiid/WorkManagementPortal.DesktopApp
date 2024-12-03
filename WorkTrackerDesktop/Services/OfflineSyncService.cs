@@ -163,32 +163,33 @@ namespace WorkTrackerDesktop.Services
         // Capture a screenshot and save it locally
         public string CaptureScreenshot()
         {
-            try
-            {
-                var screenWidth = Screen.PrimaryScreen.Bounds.Width;
-                var screenHeight = Screen.PrimaryScreen.Bounds.Height;
-                // Capture the screenshot of the primary screen
-                using (Bitmap screenshot = new Bitmap(screenWidth, screenHeight))
-                {
-                    using (Graphics g = Graphics.FromImage(screenshot))
-                    {
-                        g.CopyFromScreen(0, 0, 0, 0, screenshot.Size);
-                    }
+            //try
+            //{
+            //    var screenWidth = Screen.PrimaryScreen.Bounds.Width;
+            //    var screenHeight = Screen.PrimaryScreen.Bounds.Height;
+            //    // Capture the screenshot of the primary screen
+            //    using (Bitmap screenshot = new Bitmap(screenWidth, screenHeight))
+            //    {
+            //        using (Graphics g = Graphics.FromImage(screenshot))
+            //        {
+            //            g.CopyFromScreen(0, 0, 0, 0, screenshot.Size);
+            //        }
 
-                    // Save the screenshot locally with a timestamp
-                    string screenshotPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "screenshot_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png");
-                    screenshot.Save(screenshotPath, System.Drawing.Imaging.ImageFormat.Png);
+            //        // Save the screenshot locally with a timestamp
+            //        string screenshotPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "screenshot_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".png");
+            //        screenshot.Save(screenshotPath, System.Drawing.Imaging.ImageFormat.Png);
 
-                    Console.WriteLine($"Screenshot captured and saved to: {screenshotPath}");
+            //        Console.WriteLine($"Screenshot captured and saved to: {screenshotPath}");
 
-                    return screenshotPath;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error capturing screenshot: {ex.Message}");
-                return string.Empty;
-            }
+            //        return screenshotPath;
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine($"Error capturing screenshot: {ex.Message}");
+            //    return string.Empty;
+            //}
+            return "";
         }
     }
 }

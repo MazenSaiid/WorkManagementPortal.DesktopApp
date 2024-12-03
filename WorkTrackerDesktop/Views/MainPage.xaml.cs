@@ -34,7 +34,7 @@ namespace WorkTrackerDesktop.Views
             PauseTypes = new ObservableCollection<string> { "Break", "Meeting", "Bathroom", "Other" };
             _offlineSyncService.StartPeriodicSync(); // Sync every minute
         }
-        private async Task OnStartClickedAsync(object sender, EventArgs e)
+        private async void OnStartClicked(object sender, EventArgs e)
         {
             // Initialize the work timer if not already initialized
             if (_workTimer == null)
@@ -62,7 +62,7 @@ namespace WorkTrackerDesktop.Views
                
         }
 
-        private async Task OnPauseClickedAsync(object sender, EventArgs e)
+        private async void OnPauseClicked(object sender, EventArgs e)
         {
             if (PausePicker.SelectedItem == null)
             {
