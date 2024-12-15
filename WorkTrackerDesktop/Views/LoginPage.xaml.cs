@@ -1,18 +1,31 @@
 ﻿using WorkTrackerDesktop.Services;
 using Microsoft.Maui.Controls;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
 
 namespace WorkTrackerDesktop.Views;
 
 public partial class LoginPage : ContentPage
 {
     private readonly AuthService _authService;
+    private IConfiguration _configuration;
 
     public LoginPage()
     {
         InitializeComponent();
-        _authService = new AuthService(new HttpClient());
+
+        // Dynamically find the current directory
+        var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var configFilePath = Path.Combine(currentDirectory, "appsettings.json");
+
+        _configuration = new ConfigurationBuilder()
+            .SetBasePath(currentDirectory)  // Dynamically set the base path to the current directory
+            .AddJsonFile(configFilePath, optional: false, reloadOnChange: true)  // Use the dynamically created path
+            .Build();
+
+        _authService = new AuthService(new HttpClient(), _configuration);
     }
+
     private void OnEyeButtonClicked(object sender, EventArgs e)
     {
         // Toggle the IsPassword property of the PasswordEntry
@@ -43,12 +56,18 @@ public partial class LoginPage : ContentPage
             await DisplayAlert("Invalid Email", "Please enter a valid email address.", "OK");
             return;
         }
-        var responseMessage = await _authService.LoginAsync(email, password);
+        var response = await _authService.LoginAsync(email, password);
 
-        if (responseMessage.IsSuccessStatusCode)
+        if (response.Success)
         {
+            UserSessionService.Instance.Username = response.Username;
+            UserSessionService.Instance.UserId = response.UserId;
+            UserSessionService.Instance.SessionExpiration = response.LocalSessionExpireDate;
+            UserSessionService.Instance.Token = response.Token;
+            UserSessionService.Instance.Roles = response.Roles;
+
             // Navigate to MainPage (Work Tracking)
-            await Shell.Current.GoToAsync("//MainPage");
+           await Shell.Current.GoToAsync("//MainPage");
         }
         else
         {

@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using WorkTrackerDesktop;
 using Microsoft.Extensions.Configuration;
+using System.Net.Http;
+using WorkTrackerDesktop.Services;
+
 namespace WorkTrackerDesktop
 {
     public static class MauiProgram
@@ -17,6 +20,12 @@ namespace WorkTrackerDesktop
 
             // Register IConfiguration instance in DI container
             builder.Services.AddSingleton<IConfiguration>(configuration);
+
+            // Register AuthService
+            builder.Services.AddSingleton<AuthService>();
+
+            builder.Services.AddSingleton<HttpClient>();
+
             builder
                 .UseMauiApp<App>()
                 .ConfigureFonts(fonts =>
@@ -24,12 +33,6 @@ namespace WorkTrackerDesktop
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
-
-            // Access the configuration after DI setup
-            //var apiBaseUrl = configuration["ApiBaseUrl"];
-
-            // Register HttpClient with the ApiBaseUrl
-            //builder.Services.AddSingleton(new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 
 #if DEBUG
             builder.Logging.AddDebug();

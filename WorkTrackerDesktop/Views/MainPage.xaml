@@ -13,6 +13,18 @@
                HorizontalOptions="Center" 
                VerticalOptions="Center" 
                Margin="0,0,0,20"/>
+        <!-- Username and Role Section -->
+        <StackLayout Orientation="Horizontal" Spacing="10" HorizontalOptions="Center">
+            <Label x:Name="UsernameLabel" 
+                   Text="{Binding Username}" 
+                   FontSize="Small" 
+                   VerticalOptions="Center"/>
+            <Label Text=": " FontSize="Small" VerticalOptions="Center"/>
+            <Label x:Name="RoleLabel" 
+                   Text="{Binding FirstRole}" 
+                   FontSize="Small" 
+                   VerticalOptions="Center"/>
+        </StackLayout>
 
         <!-- Work and Pause Timer Section -->
         <HorizontalStackLayout HorizontalOptions="Center" Spacing="20">
@@ -92,6 +104,7 @@
                 IsVisible="False"
                 ItemsSource="{Binding PauseTypes}"
                 SelectedItem="{Binding SelectedPauseType}" 
+                ItemDisplayBinding="{Binding Name}"
                 Margin="0,20,0,0"
                 BackgroundColor="#FFFFFF"
                 TextColor="#333333"
