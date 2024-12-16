@@ -20,7 +20,7 @@ namespace WorkTrackerDesktop.Services
 
         public ScreenshotService(IConfiguration config)
         {
-            // Set up Serilog to log to both console and file
+            // Set up Serilog to log to both console and file C:\\Users\\abdalla\\AppData\\Roaming\\YourApp\\logs\\log.txt
             string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "YourApp", "logs", "log.txt");
 
             // Create directory if it doesn't exist
@@ -175,7 +175,7 @@ namespace WorkTrackerDesktop.Services
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "Attempt {Attempt} failed to upload screenshot", attempt);
+                    Log.Warning(ex, "Attempt failed to upload screenshot", attempt);
                 }
 
                 // Exponential backoff for retries

@@ -23,11 +23,11 @@ namespace WorkTrackerDesktop.Views
         private int _elapsedTimeInSeconds = 0;  // Total working time
         private System.Timers.Timer _pauseTimer;  // Timer for paused time (either break or meeting)
         private int _pausedTimeInSeconds = 0;  // Total paused time
-        private bool _isPaused = false;  // Is the user paused
-        private string _selectedPauseType;  // Type of pause (Break or Meeting)
         public ObservableCollection<PauseTypeDto> PauseTypes { get; set; }  // Available pause types
         public string SelectedPauseType { get; set; }  // Selected pause type from the UI
         private string _greetingMessage = "";  // Greeting message to display
+        private bool IsWorkStarted  =false;
+        private bool IsWorkEnded = false;
         private readonly IConfiguration _configuration;
 
         public MainPage()
@@ -45,7 +45,7 @@ namespace WorkTrackerDesktop.Views
             _workTimerService = new WorkTimerService(_configuration);
             _screenshotService = new ScreenshotService(_configuration);
             PauseTypes = new ObservableCollection<PauseTypeDto>();
-            //_screenshotService.StartPeriodicSync(); // Sync every minute
+            _screenshotService.StartPeriodicSync(); // Sync every minute
             LoadPauseTypes();
             UsernameLabel.Text = UserSessionService.Instance.Username;
             RoleLabel.Text = UserSessionService.Instance.FirstRole;
@@ -117,6 +117,7 @@ namespace WorkTrackerDesktop.Views
                 _workTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
                 _workTimer.Elapsed += OnWorkTimerElapsed;
             }
+
             var response = await _workTimerService.StartAsync();
             if (response.Success)
             {
@@ -133,32 +134,42 @@ namespace WorkTrackerDesktop.Views
                 WorkSessionService.Instance.WorkLogId = response.WorkTrackingLog.Id;
                 WorkSessionService.Instance.WorkTimeStart = response.WorkTrackingLog.WorkTimeStart;
 
+                // Set work start time on the label
+                WorkStartTimeLabel.Text = "Start Time: " + WorkSessionService.Instance.WorkTimeStart.ToString("hh:mm:ss tt");
+
+                // Update state variables
+                IsWorkStarted = true;
+
+                // Update visibility based on the start
+                WorkStartTimeLabel.IsVisible = true;  // Show start time
             }
             else
             {
                 await DisplayAlert("Error", "There was an issue with the Starting work session. Please try again.", "OK");
             }
-               
         }
+
 
         private async void OnPauseClicked(object sender, EventArgs e)
         {
             if (PausePicker.SelectedItem == null)
             {
-                DisplayAlert("Error", "Please select a pause type before pausing.", "OK");
+                await DisplayAlert("Error", "Please select a pause type before pausing.", "OK");
                 return;
             }
+
             // Get the selected PauseTypeDto
             var selectedPauseType = (PauseTypeDto)PausePicker.SelectedItem;
             var response = await _workTimerService.PauseAsync(selectedPauseType.Id);
+
             if (response.Success)
             {
-                _selectedPauseType = PausePicker.SelectedItem.ToString();
+                
 
-                // Pause work timer and start pause timer
-                _workTimer.Stop();
-                _isPaused = true;
+                // Pause work timer and start the pause timer
+                _workTimer.Stop();  // Stop work timer
 
+                // Start a new pause timer if not already initialized
                 if (_pauseTimer == null)
                 {
                     _pauseTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
@@ -166,6 +177,10 @@ namespace WorkTrackerDesktop.Views
                 }
 
                 _pauseTimer.Start();  // Start the pause timer
+
+                // Show pause message
+                PauseMessageLabel.Text = $"You are currently on a pause: {selectedPauseType.Name}";
+                PauseMessageLabel.IsVisible = true;
 
                 // Update UI for Pause/Resume
                 PauseButton.IsVisible = false;
@@ -176,8 +191,8 @@ namespace WorkTrackerDesktop.Views
             {
                 await DisplayAlert("Error", "There was an issue with Pausing. Please try again.", "OK");
             }
-            
         }
+
         private void OnLogoutClicked(object sender, EventArgs e)
         {
             try
@@ -205,7 +220,7 @@ namespace WorkTrackerDesktop.Views
             if (response.Success)
             {
                 _workTimer.Start();  // Resume work timer
-                _isPaused = false;
+                PauseMessageLabel.IsVisible = false;
 
                 // Stop the pause timer and reset paused time
                 _pauseTimer.Stop();
@@ -231,30 +246,48 @@ namespace WorkTrackerDesktop.Views
                 if (response.Success)
                 {
                     _workTimer.Stop();  // Stop the work timer
-
+                    _pauseTimer.Stop(); // Stop the pause timer
+                    
+                    // Calculate total time worked
                     TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);
                     WorkTimerLabel.Text = workTime.ToString(@"hh\:mm\:ss");
 
+                    // Calculate total pause time
                     TimeSpan pauseTime = TimeSpan.FromSeconds(_pausedTimeInSeconds);
-                    WorkTimerLabel.Text = pauseTime.ToString(@"hh\:mm\:ss");
+                    PauseTimerLabel.Text = pauseTime.ToString(@"hh\:mm\:ss");
 
-                    _elapsedTimeInSeconds = 0;  // Reset work time
-                    _pausedTimeInSeconds = 0;  // Reset paused time
+                    // Reset time counters
+                    _elapsedTimeInSeconds = 0;
+                    _pausedTimeInSeconds = 0;
+
                     WorkSessionService.Instance.WorkTimeEnd = response.WorkTrackingLog.WorkTimeEnd;
-                    // Update UI to show total time worked and paused
+
+                    // Set work end time on the label
+                    WorkEndTimeLabel.Text = "End Time: " + WorkSessionService.Instance.WorkTimeEnd.ToString("hh:mm:ss tt");
+
+                    // Update state variables
+                    IsWorkStarted = false;
+                    IsWorkEnded = true;
+                    WorkEndTimeLabel.IsVisible = true;
+                    PauseMessageLabel.IsVisible = false;
+
+                    // Hide buttons and show finished message
                     StopButton.IsVisible = false;
                     PauseButton.IsVisible = false;
                     PausePicker.IsVisible = false;
+                    ResumeButton.IsVisible = false;
                     FinishedWorkMessage.IsVisible = true;
-                    // Display message upon confirmation
+
+                    // Display a completion message
                     await DisplayAlert("Work Completed", "You've completed your work today. Great job!", "OK");
                 }
                 else
                 {
-                    await DisplayAlert("Error", "There was an issue with Stoping. Please try again.", "OK");
+                    await DisplayAlert("Error", "There was an issue with stopping your session. Please try again.", "OK");
                 }
             }
         }
+
 
         private void OnWorkTimerElapsed(object sender, ElapsedEventArgs e)
         {
