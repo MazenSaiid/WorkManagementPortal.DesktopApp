@@ -1,0 +1,101 @@
+﻿<Window x:Class="WorkTrackerWPFApp.Login" 
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:metro="http://metro.mahapps.com/winfx/xaml/controls"
+        Title="Login" 
+        Width="500" Height="600" 
+        ResizeMode="CanResizeWithGrip" 
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="30">
+        <!-- Use a StackPanel to arrange elements vertically -->
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center">
+
+            <!-- Welcome Message -->
+            <Label Content="Welcome to Work Tracker!" 
+                   FontSize="28" 
+                   FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   Foreground="#0056b3" 
+                   VerticalAlignment="Top" 
+                   Margin="0,0,0,20"/>
+
+            <!-- Email Label -->
+            <Label Content="Email:" 
+                   FontSize="16" 
+                   Foreground="#333333" 
+                   Margin="0,5" />
+
+            <!-- Email Entry -->
+            <TextBox x:Name="EmailTextBox" 
+                     Width="350" 
+                     Height="40" 
+                     Foreground="#333333" 
+                     FontSize="16" 
+                     Padding="10,5" 
+                     HorizontalAlignment="Center" />
+
+            <!-- Password Label -->
+            <Label Content="Password:" 
+                   FontSize="16" 
+                   Foreground="#333333" 
+                   Margin="0,5"/>
+
+            <!-- Password Box and Show/Hide Toggle -->
+            <Grid HorizontalAlignment="Center" Margin="0,5">
+                <PasswordBox x:Name="PasswordBox" 
+                 Width="350" 
+                 Height="40" 
+                 Foreground="#333333" 
+                 FontSize="16" 
+                 HorizontalAlignment="Left" 
+                 Padding="10,5"
+                 x:FieldModifier="private"/>
+
+                <!-- TextBox for displaying plain password (will be hidden initially) -->
+                <TextBox x:Name="PasswordTextBox" 
+             Width="350" 
+             Height="40" 
+             Foreground="#333333" 
+             FontSize="16" 
+             HorizontalAlignment="Left" 
+             Padding="10,5"
+             Visibility="Collapsed" 
+             x:FieldModifier="private"/>
+
+                <!-- Eye Button for Password Visibility Toggle -->
+                <Button x:Name="EyeButton" 
+            Width="40" 
+            Height="40" 
+            VerticalAlignment="Center" 
+            HorizontalAlignment="Right" 
+            Margin="0,0,15,0" 
+            Click="OnEyeButtonClicked">
+                    <Image Source="pack://application:,,,/Resources/Images/eye_icon.png" />
+                </Button>
+            </Grid>
+
+
+            <!-- Login Button -->
+            <Button x:Name="LoginButton" 
+                    Content="Login" 
+                    Width="350" 
+                    Height="50" 
+                    Background="#0056b3" 
+                    Foreground="White" 
+                    FontSize="18" 
+                    Margin="0,20,0,10" 
+                    Click="OnLoginClicked"/>
+
+            <!-- Forgot Password Button -->
+            <Button Content="Forgot Password?" 
+                    Width="350" 
+                    Height="40" 
+                    Background="Transparent" 
+                    Foreground="#0056b3" 
+                    FontSize="16" 
+                    HorizontalAlignment="Center" 
+                    Margin="0,10,0,20" 
+                    Click="OnForgotPasswordClicked"/>
+        </StackPanel>
+    </Grid>
+</Window>
