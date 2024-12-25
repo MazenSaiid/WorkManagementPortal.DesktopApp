@@ -70,12 +70,32 @@ namespace WorkTrackerWPFApp.Views
 
             PauseTypes = new ObservableCollection<PauseTypeDto>();
             _screenshotService.StartPeriodicSync(); // Sync every minute
-
+            
             // Initialize the username and role labels
             UsernameLabel.Content = UserSessionService.Instance.Username;
-            RoleLabel.Content = UserSessionService.Instance.FirstRole;
-
+            RoleLabel.Content = UserSessionService.Instance.FirstRole;// Register the Closing event handler
+            this.Closing += Window_Closing;
             LoadPauseTypes();
+        }
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // Show a confirmation dialog before closing
+            var result = System.Windows.MessageBox.Show("Are you sure you want to exit?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            // If the user clicks "No", cancel the close event
+            if (result == MessageBoxResult.No)
+            {
+                e.Cancel = true;
+            }
+            else
+            {
+                // Clear work session and user session
+                WorkSessionService.Instance.ClearWorkSession();
+                UserSessionService.Instance.ClearSession();
+
+                // Shut down the application
+                System.Windows.Application.Current.Shutdown();
+            }
         }
 
         private async void LoadPauseTypes()
@@ -201,7 +221,7 @@ namespace WorkTrackerWPFApp.Views
 
                 // Log the action to ensure it’s working
                 Debug.WriteLine("User logged out, navigating to Login page.");
-                this.Close();
+                this.Hide();
                 var LoginPage = new Login();
                 LoginPage.Show();
 
@@ -244,7 +264,10 @@ namespace WorkTrackerWPFApp.Views
                 if (response.Success)
                 {
                     _workTimer.Stop();  // Stop the work timer
-                    _pauseTimer.Stop(); // Stop the pause timer
+                    if (_pauseTimer != null)
+                    {
+                        _pauseTimer.Stop(); // Stop the pause timer
+                    }
 
                     // Calculate total time worked
                     TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);

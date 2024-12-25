@@ -3,9 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:metro="http://metro.mahapps.com/winfx/xaml/controls"
         Title="Login" 
-        Width="500" Height="600" 
-        ResizeMode="CanResizeWithGrip" 
-        WindowStartupLocation="CenterScreen">
+        Width="600" Height="700"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        WindowStyle="SingleBorderWindow" 
+        ShowInTaskbar="True">
     <Grid Margin="30">
         <!-- Use a StackPanel to arrange elements vertically -->
         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center">

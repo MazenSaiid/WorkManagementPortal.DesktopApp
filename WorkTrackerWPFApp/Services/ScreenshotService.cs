@@ -159,7 +159,13 @@ namespace WorkTrackerDesktopWPFApp.Services
                     var userId = WorkSessionService.Instance.UserId = UserSessionService.Instance.UserId;
                     content.Add(new StringContent(userId), "UserId"); // The key should be "UserId"
 
-                    var response = await _httpClient.PostAsync(_uploadUrl + "ScreenShotTrackings/UploadScreenShot", content);
+                    var workLogId = WorkSessionService.Instance.WorkLogId;
+                    if (workLogId.HasValue)  // Check if WorkLogId is not null
+                    {
+                        content.Add(new StringContent(workLogId.Value.ToString()), "WorkLogId"); // The key should be "WorkLogId"
+                    }
+
+                        var response = await _httpClient.PostAsync(_uploadUrl + "ScreenShotTrackings/UploadScreenShot", content);
 
                     if (response.IsSuccessStatusCode)
                     {

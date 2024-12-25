@@ -9,6 +9,6 @@ namespace WorkTrackerDesktopWPFApp.Dtos
     public class StartPauseDto
     {
         public int PauseType { get; set; }
-        public int WorkLogId { get; set; }
+        public int? WorkLogId { get; set; }
     }
 }

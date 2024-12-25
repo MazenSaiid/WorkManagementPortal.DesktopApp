@@ -3,53 +3,75 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Work Tracker"
         Background="#F4F4F9"
-        SizeToContent="WidthAndHeight"
+        Width="600" Height="700"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanResizeWithGrip">
+        ResizeMode="CanMinimize"
+        WindowStyle="SingleBorderWindow" 
+        ShowInTaskbar="True"
+        Margin="30">
+
+    <!-- Button Style with Rounded Corners and Increased Height -->
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,15"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="40"/>
+            <!-- Increased Height for all buttons -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="1" CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid VerticalAlignment="Top" Margin="30">
+
+        <!-- Logout Button (Positioned at the top right like a Navbar) -->
+        <Button Content="Logout"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Click="OnLogoutClicked"
+                Background="#0056b3"
+                Foreground="White"
+                Margin="0,10,30,0"
+                Width="120"
+                FontSize="16"
+                VerticalContentAlignment="Center"/>
+
         <!-- Main StackPanel for content -->
         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Width="Auto">
-
-            <!-- Logout Button (Top Right) -->
-            <Button Content="Logout"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Click="OnLogoutClicked"
-                    Background="#0056b3"
-                    Foreground="White"
-                    Margin="20,10,30,10"
-                    Padding="12,15"
-                    Width="120"
-                    FontSize="16"/>
 
             <!-- Greeting Message -->
             <Label x:Name="GreetingMessage"
                    Content="Welcome Back!"
                    FontWeight="Bold"
-                   FontSize="30"
+                   FontSize="28" 
                    HorizontalAlignment="Center"
                    VerticalAlignment="Top"
-                   Margin="0,0,0,20" />
+                   Margin="0,20,0,20" />
 
-            <!-- Username and Role Section -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,20">
                 <Label x:Name="UsernameLabel" Content="{Binding Username}" VerticalAlignment="Center" FontSize="20"/>
                 <Label Content=": " VerticalAlignment="Center" FontSize="20"/>
                 <Label x:Name="RoleLabel" Content="{Binding FirstRole}" VerticalAlignment="Center" FontSize="20"/>
             </StackPanel>
 
-            <!-- Work and Pause Timer Section -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,20">
                 <!-- Work Timer -->
                 <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
-                    <Label Content="Total Work Time" HorizontalAlignment="Center" Foreground="#4CAF50" FontSize="20"/>
+                    <Label Content="Total Work Time" HorizontalAlignment="Center" Foreground="#4CAF50" FontSize="18"/>
                     <Label x:Name="WorkTimerLabel" Content="00:00:00" HorizontalAlignment="Center" Foreground="#333333" FontSize="28"/>
                 </StackPanel>
 
                 <!-- Pause Timer -->
                 <StackPanel VerticalAlignment="Center">
-                    <Label Content="Total Paused Time" HorizontalAlignment="Center" Foreground="#d9534f" FontSize="20"/>
+                    <Label Content="Total Paused Time" HorizontalAlignment="Center" Foreground="#d9534f" FontSize="18"/>
                     <Label x:Name="PauseTimerLabel" Content="00:00:00" HorizontalAlignment="Center" Foreground="#333333" FontSize="28"/>
                 </StackPanel>
             </StackPanel>
@@ -62,7 +84,6 @@
 
             <!-- Pause Message -->
             <Label x:Name="PauseMessageLabel" Content="You are currently on pause" Visibility="Collapsed" HorizontalAlignment="Center" Foreground="#f0ad4e" FontSize="22"/>
-
 
             <!-- Pause Type Picker (Dropdown) -->
             <ComboBox x:Name="PausePicker"
@@ -80,27 +101,39 @@
             <Label Content="Thank You for Your Valuable Time Today!" 
                    x:Name="FinishedWorkMessage"
                    Visibility="Collapsed"
-                   FontSize="30"
+                   FontSize="24" 
                    FontWeight="Bold"
                    HorizontalAlignment="Center"
                    Margin="0,30,0,20"
                    Foreground="#4CAF50"/>
 
             <!-- Start, Pause, Resume, Stop Buttons -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,20,0,0">
-                <!-- Pause Button (Initially Collapsed) -->
-                <Button Content="Pause" Click="OnPauseClicked" x:Name="PauseButton" Visibility="Collapsed" Background="#f0ad4e" Foreground="White" Padding="12,15" Width="150" FontSize="20" HorizontalAlignment="Left"/>
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Margin="0,20,0,0">
 
-                <!-- Resume Button (Initially Collapsed) -->
-                <Button Content="Resume" Click="OnResumeClicked" x:Name="ResumeButton" Visibility="Collapsed" Background="#4CAF50" Foreground="White" Padding="12,15" Width="150" FontSize="20" HorizontalAlignment="Left"/>
+                <!-- Start Button (Initially Full Width) -->
+                <Button Content="Start" Click="OnStartClicked" x:Name="StartButton"
+                        Background="#0056b3" Foreground="White" Padding ="50"/>
 
-                <!-- Start Button (Initially Visible, Centered) -->
-                <Button Content="Start" Click="OnStartClicked" x:Name="StartButton" Background="#0056b3" Foreground="White" Margin="10" Padding="12,15" Width="200" FontSize="20" HorizontalAlignment="Center"/>
-
-                <!-- Stop Button (Initially Collapsed) -->
-                <Button Content="Stop" Click="OnStopClicked" x:Name="StopButton" Background="#d9534f" Foreground="White" Visibility="Collapsed" Margin="10" Padding="12,15" Width="200" FontSize="20" HorizontalAlignment="Right"/>
             </StackPanel>
+            <!-- Pause, Resume, Stop Buttons (50% Width) -->
+            <Grid HorizontalAlignment="Stretch" Margin="10,20,10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
+                <!-- Pause Button -->
+                <Button Content="Pause" Click="OnPauseClicked" x:Name="PauseButton" Visibility="Collapsed"
+                        Background="#f0ad4e" Foreground="White" Grid.Column="0"/>
+
+                <!-- Resume Button -->
+                <Button Content="Resume" Click="OnResumeClicked" x:Name="ResumeButton" Visibility="Collapsed"
+                        Background="#4CAF50" Foreground="White" Grid.Column="0"/>
+
+                <!-- Stop Button -->
+                <Button Content="Stop" Click="OnStopClicked" x:Name="StopButton" Visibility="Collapsed"
+                        Background="#d9534f" Foreground="White" Grid.Column="1"/>
+            </Grid>
 
         </StackPanel>
     </Grid>

@@ -4,7 +4,7 @@
     {
         private static WorkSessionService _instance;
 
-        public int WorkLogId { get; set; }
+        public int? WorkLogId { get; set; }
         public int PauseId { get; set; }
         public string UserId { get; set; }
         public DateTime WorkTimeStart { get; set; }

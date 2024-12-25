@@ -30,10 +30,31 @@ namespace WorkTrackerWPFApp
                 .SetBasePath(currentDirectory)  // Dynamically set the base path to the current directory
                 .AddJsonFile(configFilePath, optional: false, reloadOnChange: true)  // Use the dynamically created path
                 .Build();
-
+            // Register the Closing event handler
+            this.Closing += Window_Closing;
             _authService = new AuthService(new HttpClient(), _configuration);
         }
+        // Closing event handler
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            // Show a confirmation dialog before closing
+            var result = System.Windows.MessageBox.Show("Are you sure you want to exit?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
+            // If the user clicks "No", cancel the close event
+            if (result == MessageBoxResult.No)
+            {
+                e.Cancel = true;
+            }
+            else
+            {
+                // Clear work session and user session
+                WorkSessionService.Instance.ClearWorkSession();
+                UserSessionService.Instance.ClearSession();
+
+                // Shut down the application
+                System.Windows.Application.Current.Shutdown();
+            }
+        }
         // Event handler for Eye Button (to toggle password visibility)
         private void OnEyeButtonClicked(object sender, RoutedEventArgs e)
         {

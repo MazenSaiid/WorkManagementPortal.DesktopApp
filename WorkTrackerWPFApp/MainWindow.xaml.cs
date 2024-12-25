@@ -16,7 +16,7 @@ using MahApps.Metro.Controls; // If you're using MetroWindow
 namespace WorkTrackerWPFApp
 {
 
-    public partial class MainWindow : Window // Make sure it's a MetroWindow
+    public partial class MainWindow : Window
     {
         public MainWindow()
         {
@@ -28,24 +28,8 @@ namespace WorkTrackerWPFApp
 
             // Close the current MainWindow since it's not needed
             this.Hide();  // Hide the MainWindow instead of closing it immediately
-            // Register the Closing event handler
-            this.Closing += Window_Closing;
-        }
-
-        // Closing event handler
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            // Show a confirmation dialog before closing
-            var result = System.Windows.MessageBox.Show("Are you sure you want to exit?", "Confirm Exit", MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-            // If the user clicks "No", cancel the close event
-            if (result == MessageBoxResult.No)
-            {
-                e.Cancel = true;
-            }
         }
 
     }
-
 
 }

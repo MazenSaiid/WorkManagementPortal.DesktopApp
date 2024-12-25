@@ -5,7 +5,9 @@
                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                  xmlns:local="clr-namespace:WorkTrackerWPFApp"
                  mc:Ignorable="d"
-                 Title="MainWindow" Height="450" Width="800">
+                 Title="MainWindow" Width="600" Height="700"  
+                 ResizeMode="NoResize"
+                 WindowStartupLocation="CenterScreen">
     <Grid>
         <!-- Your content here -->
     </Grid>
