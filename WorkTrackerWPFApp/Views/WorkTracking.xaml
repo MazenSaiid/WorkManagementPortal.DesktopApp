@@ -96,7 +96,20 @@
                       SelectedItem="{Binding SelectedPauseType}"
                       Width="200"
                       FontSize="20"/>
+            <!-- Error Message TextBlock -->
+            <TextBlock x:Name="ErrorMessageTextBlock"
+            Foreground="Red"
+            FontSize="14"
+            Visibility="Collapsed"
+            Margin="0,10,0,0"/>
 
+            <!-- Success Message TextBlock -->
+            <TextBlock x:Name="SuccessMessageTextBlock"
+            Foreground="Green"
+            FontSize="14"
+            Visibility="Collapsed"
+            Margin="0,10,0,0"/>
+            
             <!-- Finished Work Message (Hidden initially) -->
             <Label Content="Thank You for Your Valuable Time Today!" 
                    x:Name="FinishedWorkMessage"

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WorkTrackerDesktopWPFApp.Services
+namespace WorkTrackerWPFApp.Services.Static
 {
     public class UserSessionService
     {

@@ -1,4 +1,4 @@
-﻿namespace WorkTrackerDesktopWPFApp.Services
+﻿namespace WorkTrackerWPFApp.Services.Static
 {
     public class WorkSessionService
     {

@@ -8,6 +8,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
 using WorkTrackerDesktopWPFApp.Responses;
+using WorkTrackerWPFApp.Responses;
 
 namespace WorkTrackerDesktopWPFApp.Services
 {
@@ -42,20 +43,16 @@ namespace WorkTrackerDesktopWPFApp.Services
             {
                 var loginData = new { Email = email, Password = password };
                 var response = await _httpClient.PostAsJsonAsync(_authUrl + "Accounts/Login", loginData);
+                var content = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Read the response content as a string (raw JSON)
-                    var content = await response.Content.ReadAsStringAsync();
-
                     // Deserialize the raw JSON string into a strongly-typed LoginResponse object using JsonConvert
                     var loginResponseDto = JsonConvert.DeserializeObject<LoginResponse>(content);
-
-                    // Return the LoginResponse based on the deserialized content
                     return new LoginResponse
                     {
-                        Success = true,
-                        Message = "Login successful",
+                        Success = loginResponseDto.Success,
+                        Message = loginResponseDto.Message,
                         Token = loginResponseDto.Token, // Extract token directly
                         Username = loginResponseDto.Username, // Extract username
                         UserId = loginResponseDto.UserId, // Extract userId
@@ -69,7 +66,7 @@ namespace WorkTrackerDesktopWPFApp.Services
                     return new LoginResponse
                     {
                         Success = false,
-                        Message = "Login failed. Please check your credentials."
+                        Message = content,
                     };
                 }
             }
@@ -82,26 +79,48 @@ namespace WorkTrackerDesktopWPFApp.Services
                 return new LoginResponse
                 {
                     Success = false,
-                    Message = $"Error in Login: {ex.Message}"
+                    Message = $"Error in Login: \n {ex.Message}"
                 };
             }
 
         }
-        public async Task<HttpResponseMessage> ResetPasswordAsync(string email)
+        public async Task<ValidationResponse> ResetPasswordAsync(string email)
         {
             try
             {
-                var content = new StringContent(JsonConvert.SerializeObject(new { email }), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(_authUrl + "Accounts/RequestPasswordReset", content);
-                return response;
+                Log.Information("Resetting password for email: {Email}", email);
+                var forgotPasswordData = new { Email = email };
+                var response = await _httpClient.PostAsJsonAsync(_authUrl + "Accounts/RequestPasswordReset", forgotPasswordData);
+                var content = await response.Content.ReadAsStringAsync();
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var forgotPasswordResponseDto = JsonConvert.DeserializeObject<ValidationResponse>(content);
+                    return new LoginResponse
+                    {
+                        Success = forgotPasswordResponseDto.Success,
+                        Message = forgotPasswordResponseDto.Message,
+                    };
+
+                }
+                else
+                {
+                    return new LoginResponse
+                    {
+                        Success = false,
+                        Message = content,
+                    };
+
+                }
             }
             catch (Exception ex)
             {
                 // Log the error using the injected logger
                 Log.Error(ex, "Error resetting password for email: {Email}", email);
-                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                return new ValidationResponse
                 {
-                    Content = new StringContent($"Error resetting password: {ex.Message}")
+                    Success = false,
+                    Message = $" Error resetting password \n {ex.Message}"
                 };
             }
         }

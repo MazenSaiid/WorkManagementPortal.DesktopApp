@@ -2,6 +2,7 @@
 using System.Data;
 using System.Diagnostics;
 using System.Windows;
+using WorkTrackerDesktopWPFApp.Services;
 
 namespace WorkTrackerWPFApp
 {
@@ -32,6 +33,7 @@ namespace WorkTrackerWPFApp
                     Debugger.Break(); // Break in debugger
             };
         }
+
     }
 
 }

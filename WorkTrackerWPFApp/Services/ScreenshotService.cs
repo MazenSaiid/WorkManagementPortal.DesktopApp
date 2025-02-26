@@ -10,6 +10,9 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using WorkTrackerWPFApp.Services;
+using System.ComponentModel;
+using WorkTrackerWPFApp.Services.Static;
 
 namespace WorkTrackerDesktopWPFApp.Services
 {
@@ -22,49 +25,28 @@ namespace WorkTrackerDesktopWPFApp.Services
         private readonly string _username;
 
         // Paths
-        private readonly string _baseDirectory;
         private readonly string _logFilePath;
         private readonly string _pendingScreenshotFilePath;
 
+        // Idle tracking
+        private DateTime _lastInputTime;
+        private bool _isIdle;
+        private int _idleTimeCheck;
+        private readonly MouseKeyboardTracker _mouseKeyboardTracker;
+
         public ScreenshotService(IConfiguration config)
         {
-            _username = Environment.UserName;
+            _logFilePath = PathHelperService.GetBaseDirectoryLogFilePath(config);
+            _pendingScreenshotFilePath = Path.Combine(_logFilePath, "pending_screenshots.txt");
 
-            // Initialize paths
-            _baseDirectory = Path.Combine("C:\\", "Users", _username, "WorkTrackerScreenshots");
-            _logFilePath = Path.Combine(_baseDirectory, "logs", "log.txt");
-            _pendingScreenshotFilePath = Path.Combine(_baseDirectory, "pending_screenshots.txt");
-
-            // Create necessary directories
-            CreateDirectoryIfNotExists(_baseDirectory);
-            CreateDirectoryIfNotExists(Path.GetDirectoryName(_logFilePath));
-
-            // Set up logging
-            SetUpLogging();
 
             // Read configuration settings
-            _uploadUrl = config["ApiBaseUrl"] ?? "https://localhost:7119/api/";
+            _uploadUrl = config["ApiBaseUrl"];
             _syncInterval = int.TryParse(config["SyncInterval"], out var interval) ? interval : 60000; // Default 60 seconds
-
+            _mouseKeyboardTracker = new MouseKeyboardTracker(config);
             _httpClient = new HttpClient();
             _syncTimer = new System.Timers.Timer(_syncInterval); // Sync every interval defined in settings
             _syncTimer.Elapsed += async (sender, e) => await CaptureScreenshotAsync(); // Capture and sync periodically
-        }
-
-        private void SetUpLogging()
-        {
-            Log.Logger = new LoggerConfiguration()
-                .WriteTo.Console()  // Output logs to console
-                .WriteTo.File(_logFilePath, rollingInterval: RollingInterval.Day) // Log to file
-                .CreateLogger();
-        }
-
-        private void CreateDirectoryIfNotExists(string path)
-        {
-            if (!Directory.Exists(path))
-            {
-                Directory.CreateDirectory(path);
-            }
         }
 
         public void StartPeriodicSync()
@@ -76,6 +58,9 @@ namespace WorkTrackerDesktopWPFApp.Services
         {
             try
             {
+                // Check idle status before capturing the screenshot
+                bool isIdle = _mouseKeyboardTracker.IsIdle();
+                string serializedObject = _mouseKeyboardTracker.GetUserInputData();
                 // Capture the screenshot on the UI thread
                 Stream screenshotResult = await CaptureFullScreenAsync(); // Ensure this returns Stream
 
@@ -87,20 +72,18 @@ namespace WorkTrackerDesktopWPFApp.Services
 
                 // Generate a unique filename using a timestamp or GUID
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string screenshotPath = Path.Combine(_baseDirectory, $"{timestamp}_screenshot.png");
+                string screenshotPath = Path.Combine(_logFilePath, $"{timestamp}_screenshot.png");
 
                 // Save locally if no internet connection
                 await SaveScreenshotToFileAsync(screenshotResult, screenshotPath);
 
                 if (IsInternetAvailable())
                 {
-                    // If internet is available, upload to the backend
-                    await UploadScreenshotWithRetryAsync(screenshotPath);
+                    await UploadScreenshotWithRetryAsync(screenshotPath, isIdle,serializedObject);
                 }
                 else
                 {
-                    // Save screenshot path locally for later upload
-                    await SaveScreenshotLocallyAsync(screenshotPath);
+                    await SaveScreenshotLocallyAsync(screenshotPath, isIdle, serializedObject);
                 }
 
                 // Sync any pending screenshots (those saved when offline)
@@ -129,21 +112,22 @@ namespace WorkTrackerDesktopWPFApp.Services
                 // Save the screenshot to a memory stream
                 var memoryStream = new MemoryStream();
                 screenshot.Save(memoryStream, System.Drawing.Imaging.ImageFormat.Png);
-
+                Log.Information("Screenshot captured successfully.");
                 // Reset the position of the memory stream and return
                 memoryStream.Position = 0;
                 return memoryStream;
+                
             }
             catch (Exception ex)
             {
                 // Log error if necessary
-                Console.WriteLine("Error capturing full-screen: " + ex.Message);
+                Log.Error("Error capturing full-screen: " + ex.Message);
                 return null;
             }
         }
 
 
-        private async Task UploadScreenshotWithRetryAsync(string filePath)
+        private async Task UploadScreenshotWithRetryAsync(string filePath, bool isIdle,string serializedObject)
         {
             try
             {
@@ -159,6 +143,8 @@ namespace WorkTrackerDesktopWPFApp.Services
                     var userId = WorkSessionService.Instance.UserId = UserSessionService.Instance.UserId;
                     content.Add(new StringContent(userId), "UserId"); // The key should be "UserId"
 
+                    content.Add(new StringContent(isIdle.ToString()), "IsIdle");
+                    content.Add(new StringContent(serializedObject), "SerializedTrackingObject");
                     var workLogId = WorkSessionService.Instance.WorkLogId;
                     if (workLogId.HasValue)  // Check if WorkLogId is not null
                     {
@@ -200,7 +186,7 @@ namespace WorkTrackerDesktopWPFApp.Services
                     }
                     else
                     {
-                        Log.Warning("Failed to upload screenshot. Server returned: {StatusCode}", response.StatusCode);
+                        Log.Warning($"Failed to upload screenshot. Server returned: {response.StatusCode}" );
                     }
                 }
             }
@@ -231,9 +217,9 @@ namespace WorkTrackerDesktopWPFApp.Services
             }
         }
 
-        private async Task SaveScreenshotLocallyAsync(string filePath)
+        private async Task SaveScreenshotLocallyAsync(string filePath, bool isIdle, string serializedObject)
         {
-            await File.AppendAllTextAsync(_pendingScreenshotFilePath, filePath + Environment.NewLine);
+            await File.AppendAllTextAsync(_pendingScreenshotFilePath, $"{filePath}|{isIdle}|{serializedObject} {Environment.NewLine}");
         }
         private bool IsInternetAvailable()
         {
@@ -244,14 +230,22 @@ namespace WorkTrackerDesktopWPFApp.Services
             try
             {
                 var screenshotPaths = GetPendingScreenshots();
-                foreach (var screenshotPath in screenshotPaths)
+                foreach (var entry in screenshotPaths)
                 {
-                    if (IsInternetAvailable())
+                    var parts = entry.Split('|');
+                    if (parts.Length == 3)
                     {
-                        await UploadScreenshotWithRetryAsync(screenshotPath);
-                        DeleteLocalScreenshot(screenshotPath);
+                        string filePath = parts[0];
+                        bool isIdle = bool.Parse(parts[1]);
+                        string serializedObject = parts[2];
+
+                        if (IsInternetAvailable())
+                        {
+                            await UploadScreenshotWithRetryAsync(filePath, isIdle,serializedObject);
+                        }
                     }
                 }
+                ClearPendingScreenshotFile();
             }
             catch (Exception ex)
             {
@@ -265,7 +259,7 @@ namespace WorkTrackerDesktopWPFApp.Services
                 if (File.Exists(screenshotPath))
                 {
                     File.Delete(screenshotPath); // Delete the screenshot file after successful upload
-                    Log.Information("Local screenshot file deleted: {ScreenshotPath}", screenshotPath);
+                    Log.Information($"Local screenshot file deleted: {screenshotPath}");
                 }
             }
             catch (Exception ex)
@@ -273,11 +267,24 @@ namespace WorkTrackerDesktopWPFApp.Services
                 Log.Error(ex, "Error deleting local screenshot");
             }
         }
+        private void ClearPendingScreenshotFile()
+        {
+            try
+            {
+                File.WriteAllText(_pendingScreenshotFilePath, string.Empty);
+                Log.Information("Cleared pending screenshots file after successful sync.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error clearing pending screenshots file.");
+            }
+        }
         private IEnumerable<string> GetPendingScreenshots()
         {
             if (!File.Exists(_pendingScreenshotFilePath))
             {
-                return new List<string>(); // No pending screenshots
+                Log.Information($"No pending screenshots");
+                return new List<string>(); // No pending screenshots                
             }
 
             return File.ReadAllLines(_pendingScreenshotFilePath);

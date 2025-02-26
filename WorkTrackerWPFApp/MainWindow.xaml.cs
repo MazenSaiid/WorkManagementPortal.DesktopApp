@@ -11,7 +11,8 @@ using System.Windows.Shapes;
 
 using System.Windows;
 using WorkTrackerWPFApp.Views;
-using MahApps.Metro.Controls; // If you're using MetroWindow
+using MahApps.Metro.Controls;
+using WorkTrackerDesktopWPFApp.Services; // If you're using MetroWindow
 
 namespace WorkTrackerWPFApp
 {
@@ -21,12 +22,9 @@ namespace WorkTrackerWPFApp
         public MainWindow()
         {
             InitializeComponent();
-
             // Show the Login page
             var loginPage = new Login(); // Instantiate LoginPage
             loginPage.Show();  // Show LoginPage on startup
-
-            // Close the current MainWindow since it's not needed
             this.Hide();  // Hide the MainWindow instead of closing it immediately
         }
 

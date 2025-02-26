@@ -1,10 +1,9 @@
-﻿namespace WorkTrackerDesktopWPFApp.Responses
+﻿using WorkTrackerWPFApp.Responses;
+
+namespace WorkTrackerDesktopWPFApp.Responses
 {
-    public class PauseTrackingResponse
+    public class PauseTrackingResponse : ValidationResponse
     {
-        public bool Success { get; set; }
-        public string Message { get; set; }
-        public string Token { get; set; }
         public PauseTrackingLog PauseTrackingLog { get; set; }
     }
 }

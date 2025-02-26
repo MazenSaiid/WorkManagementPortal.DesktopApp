@@ -32,6 +32,8 @@ using System.Linq;
 using WorkTrackerDesktopWPFApp.Services;
 using WorkTrackerDesktopWPFApp.Dtos;
 using System.Windows.Forms;
+using WorkTrackerWPFApp.Services;
+using WorkTrackerWPFApp.Services.Static;
 
 namespace WorkTrackerWPFApp.Views
 {
@@ -40,6 +42,8 @@ namespace WorkTrackerWPFApp.Views
         private readonly AuthService _authService;
         private readonly WorkTimerService _workTimerService;
         private readonly ScreenshotService _screenshotService;
+        private readonly ApplicationActivityTrackerService _applicationActivityTracker;
+        private readonly MouseKeyboardTracker _mouseKeyboardTracker;
         private System.Timers.Timer _workTimer;  // Timer for working time
         private int _elapsedTimeInSeconds = 0;  // Total working time
         private System.Timers.Timer _pauseTimer;  // Timer for paused time (either break or meeting)
@@ -67,8 +71,10 @@ namespace WorkTrackerWPFApp.Views
             _authService = new AuthService(new HttpClient(), _configuration);
             _workTimerService = new WorkTimerService(_configuration);
             _screenshotService = new ScreenshotService(_configuration);
-
+            _applicationActivityTracker = new ApplicationActivityTrackerService(_configuration);
+            _mouseKeyboardTracker = new MouseKeyboardTracker(_configuration);
             PauseTypes = new ObservableCollection<PauseTypeDto>();
+            _applicationActivityTracker.StartPeriodicSending(int.TryParse(_configuration["ApplicationActivitySyncInterval"], out var interval) ? interval : 15);
             _screenshotService.StartPeriodicSync(); // Sync every minute
             
             // Initialize the username and role labels
@@ -93,15 +99,16 @@ namespace WorkTrackerWPFApp.Views
                 WorkSessionService.Instance.ClearWorkSession();
                 UserSessionService.Instance.ClearSession();
 
+                _mouseKeyboardTracker.Dispose();
                 // Shut down the application
                 System.Windows.Application.Current.Shutdown();
             }
         }
-
         private async void LoadPauseTypes()
         {
             try
             {
+                ClearError();
                 using (var client = new HttpClient())
                 {
                     var pauseTypesUrl = _configuration["ApiBaseUrl"] + "WorkTrackings/GetPauseTypes";
@@ -122,94 +129,113 @@ namespace WorkTrackerWPFApp.Views
                     }
                     else
                     {
-                        System.Windows.MessageBox.Show("Failed to load pause types. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ShowError($"Failed to load pause types.{response.RequestMessage}");
                     }
                 }
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("There was an issue with the loading pause types. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowError($"{ex.Message}");
                 Log.Error(ex, "Error loading pause types");
             }
         }
 
         private async void OnStartClicked(object sender, RoutedEventArgs e)
         {
+            ClearError();
             // Initialize the work timer if not already initialized
             if (_workTimer == null)
             {
                 _workTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
                 _workTimer.Elapsed += OnWorkTimerElapsed;
             }
-
-            var response = await _workTimerService.StartAsync();
-            if (response.Success)
+            try
             {
-                _workTimer.Start();  // Start work timer
-                UpdateGreetingMessage();  // Update greeting message
+                var response = await _workTimerService.StartAsync();
+                if (response.Success)
+                {
+                    _workTimer.Start();  // Start work timer
+                    UpdateGreetingMessage();  // Update greeting message
 
-                // Update UI for Start/Pause
-                StartButton.Visibility = Visibility.Hidden;
-                PauseButton.Visibility = Visibility.Visible;
-                StopButton.Visibility = Visibility.Visible;
-                PausePicker.Visibility = Visibility.Visible;
+                    // Update UI for Start/Pause
+                    StartButton.Visibility = Visibility.Hidden;
+                    PauseButton.Visibility = Visibility.Visible;
+                    StopButton.Visibility = Visibility.Visible;
+                    PausePicker.Visibility = Visibility.Visible;
 
-                WorkSessionService.Instance.WorkLogId = response.WorkTrackingLog.Id;
-                WorkSessionService.Instance.WorkTimeStart = response.WorkTrackingLog.WorkTimeStart;
+                    WorkSessionService.Instance.WorkLogId = response.WorkTrackingLog.Id;
+                    WorkSessionService.Instance.WorkTimeStart = response.WorkTrackingLog.WorkTimeStart;
 
-                // Set work start time on the label
-                WorkStartTimeLabel.Content = "Start Time: " + WorkSessionService.Instance.WorkTimeStart.ToString("hh:mm:ss tt");
+                    // Set work start time on the label
+                    WorkStartTimeLabel.Content = "Start Time: " + WorkSessionService.Instance.WorkTimeStart.ToString("hh:mm:ss tt");
 
-                // Update state variables
-                IsWorkStarted = true;
+                    // Update state variables
+                    IsWorkStarted = true;
 
-                // Update visibility based on the start
-                WorkStartTimeLabel.Visibility = Visibility.Visible;  // Show start time
+                    // Update visibility based on the start
+                    WorkStartTimeLabel.Visibility = Visibility.Visible;  // Show start time
+                }
+                else
+                {
+                    ShowError($"{response.Message}");
+                }
             }
-            else
+            catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("There was an issue with the Starting work session. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                ShowError($"{ex.Message}");
             }
+            
         }
 
         private async void OnPauseClicked(object sender, RoutedEventArgs e)
         {
-            if (PausePicker.SelectedItem == null)
+            ClearError();
+            try
             {
-                System.Windows.MessageBox.Show("Please select a pause type before pausing.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            var selectedPauseType = (PauseTypeDto)PausePicker.SelectedItem;
-            var response = await _workTimerService.PauseAsync(selectedPauseType.Id);
-
-            if (response.Success)
-            {
-                // Pause work timer and start the pause timer
-                _workTimer.Stop();  // Stop work timer
-
-                // Start a new pause timer if not already initialized
-                if (_pauseTimer == null)
+                if (PausePicker.SelectedItem == null)
                 {
-                    _pauseTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
-                    _pauseTimer.Elapsed += OnPauseTimerElapsed;
+                    ShowError("Please select a pause type before pausing.");
+                    return;
                 }
 
-                _pauseTimer.Start();  // Start the pause timer
+                var selectedPauseType = (PauseTypeDto)PausePicker.SelectedItem;
+                var response = await _workTimerService.PauseAsync(selectedPauseType.Id);
 
-                // Show pause message
-                PauseMessageLabel.Content = $"You are currently on a pause: {selectedPauseType.Name}";
-                PauseMessageLabel.Visibility = Visibility.Visible;
+                if (response.Success)
+                {
+                    // Pause work timer and start the pause timer
+                    _workTimer.Stop();  // Stop work timer
 
-                // Update UI for Pause/Resume
-                PauseButton.Visibility = Visibility.Hidden;
-                PausePicker.Visibility = Visibility.Hidden;
-                ResumeButton.Visibility = Visibility.Visible;
+                    // Start a new pause timer if not already initialized
+                    if (_pauseTimer == null)
+                    {
+                        _pauseTimer = new System.Timers.Timer(1000);  // 1000 ms = 1 second
+                        _pauseTimer.Elapsed += OnPauseTimerElapsed;
+                    }
+
+                    _pauseTimer.Start();  // Start the pause timer
+
+                    // Show pause message
+                    PauseMessageLabel.Content = $"You are currently on a pause: {selectedPauseType.Name}";
+                    PauseMessageLabel.Visibility = Visibility.Visible;
+
+                    // Update UI for Pause/Resume
+                    PauseButton.Visibility = Visibility.Hidden;
+                    PausePicker.Visibility = Visibility.Hidden;
+                    ResumeButton.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    ShowError($"{response.Message}");
+                }
+
             }
-            else
+            catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("There was an issue with Pausing. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowError($"{ex.Message}");
             }
+            
         }
         private void OnLogoutClicked(object sender, EventArgs e)
         {
@@ -218,9 +244,6 @@ namespace WorkTrackerWPFApp.Views
                 // Clear work session and user session
                 WorkSessionService.Instance.ClearWorkSession();
                 UserSessionService.Instance.ClearSession();
-
-                // Log the action to ensure it’s working
-                Debug.WriteLine("User logged out, navigating to Login page.");
                 this.Hide();
                 var LoginPage = new Login();
                 LoginPage.Show();
@@ -230,82 +253,102 @@ namespace WorkTrackerWPFApp.Views
             {
                 // Log the error
                 Log.Error(ex, "Error in Logout");
-                Debug.WriteLine($"Error in Logout: {ex.Message}");
             }
         }
         private async void OnResumeClicked(object sender, RoutedEventArgs e)
         {
-            var response = await _workTimerService.ResumeAsync();
-            if (response.Success)
+            ClearError();
+            try
             {
-                _workTimer.Start();  // Resume work timer
-                PauseMessageLabel.Visibility = Visibility.Hidden;
+                var response = await _workTimerService.ResumeAsync();
+                if (response.Success)
+                {
+                    _workTimer.Start();  // Resume work timer
+                    PauseMessageLabel.Visibility = Visibility.Hidden;
 
-                // Stop the pause timer and reset paused time
-                _pauseTimer.Stop();
+                    // Stop the pause timer and reset paused time
+                    _pauseTimer.Stop();
 
-                // Update UI for Pause/Resume
-                ResumeButton.Visibility = Visibility.Hidden;
-                PauseButton.Visibility = Visibility.Visible;
-                PausePicker.Visibility = Visibility.Visible;
+                    // Update UI for Pause/Resume
+                    ResumeButton.Visibility = Visibility.Hidden;
+                    PauseButton.Visibility = Visibility.Visible;
+                    PausePicker.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    ShowError($"{response.Message}");
+                }
+
             }
-            else
+            catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("There was an issue with Resuming. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                ShowError($"{ex.Message}");
             }
+            
         }
 
         private async void OnStopClicked(object sender, RoutedEventArgs e)
         {
+            ClearError();
             var confirm = System.Windows.MessageBox.Show("Are you sure you want to stop your work for today?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (confirm == MessageBoxResult.Yes)
             {
-                var response = await _workTimerService.StopAsync();
-                if (response.Success)
+                try
                 {
-                    _workTimer.Stop();  // Stop the work timer
-                    if (_pauseTimer != null)
+                    var response = await _workTimerService.StopAsync();
+                    if (response.Success)
                     {
-                        _pauseTimer.Stop(); // Stop the pause timer
+                        _workTimer.Stop();  // Stop the work timer
+                        if (_pauseTimer != null)
+                        {
+                            _pauseTimer.Stop(); // Stop the pause timer
+                        }
+
+                        // Calculate total time worked
+                        TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);
+                        WorkTimerLabel.Content = workTime.ToString(@"hh\:mm\:ss");
+
+                        // Calculate total pause time
+                        TimeSpan pauseTime = TimeSpan.FromSeconds(_pausedTimeInSeconds);
+                        PauseTimerLabel.Content = pauseTime.ToString(@"hh\:mm\:ss");
+
+                        // Reset time counters
+                        _elapsedTimeInSeconds = 0;
+                        _pausedTimeInSeconds = 0;
+
+                        WorkSessionService.Instance.WorkTimeEnd = response.WorkTrackingLog.WorkTimeEnd;
+
+                        // Set work end time on the label
+                        WorkEndTimeLabel.Content = "End Time: " + WorkSessionService.Instance.WorkTimeEnd.ToString("hh:mm:ss tt");
+
+                        // Update state variables
+                        IsWorkStarted = false;
+                        IsWorkEnded = true;
+                        WorkEndTimeLabel.Visibility = Visibility.Visible;
+                        PauseMessageLabel.Visibility = Visibility.Hidden;
+
+                        // Hide buttons and show finished message
+                        StopButton.Visibility = Visibility.Hidden;
+                        PauseButton.Visibility = Visibility.Hidden;
+                        PausePicker.Visibility = Visibility.Hidden;
+                        ResumeButton.Visibility = Visibility.Hidden;
+                        FinishedWorkMessage.Visibility = Visibility.Visible;
+
+                        // Display a completion message
+                        ShowSuccess("You've completed your work today. Great job!");
                     }
-
-                    // Calculate total time worked
-                    TimeSpan workTime = TimeSpan.FromSeconds(_elapsedTimeInSeconds);
-                    WorkTimerLabel.Content = workTime.ToString(@"hh\:mm\:ss");
-
-                    // Calculate total pause time
-                    TimeSpan pauseTime = TimeSpan.FromSeconds(_pausedTimeInSeconds);
-                    PauseTimerLabel.Content = pauseTime.ToString(@"hh\:mm\:ss");
-
-                    // Reset time counters
-                    _elapsedTimeInSeconds = 0;
-                    _pausedTimeInSeconds = 0;
-
-                    WorkSessionService.Instance.WorkTimeEnd = response.WorkTrackingLog.WorkTimeEnd;
-
-                    // Set work end time on the label
-                    WorkEndTimeLabel.Content = "End Time: " + WorkSessionService.Instance.WorkTimeEnd.ToString("hh:mm:ss tt");
-
-                    // Update state variables
-                    IsWorkStarted = false;
-                    IsWorkEnded = true;
-                    WorkEndTimeLabel.Visibility = Visibility.Visible;
-                    PauseMessageLabel.Visibility = Visibility.Hidden;
-
-                    // Hide buttons and show finished message
-                    StopButton.Visibility = Visibility.Hidden;
-                    PauseButton.Visibility = Visibility.Hidden;
-                    PausePicker.Visibility = Visibility.Hidden;
-                    ResumeButton.Visibility = Visibility.Hidden;
-                    FinishedWorkMessage.Visibility = Visibility.Visible;
-
-                    // Display a completion message
-                    System.Windows.MessageBox.Show("You've completed your work today. Great job!", "Work Completed", MessageBoxButton.OK, MessageBoxImage.Information);
+                    else
+                    {
+                        ShowError($"{response.Message}");
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show("There was an issue with stopping your session. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                    ShowError($"{ex.Message}");
                 }
+                
             }
         }
 
@@ -350,7 +393,22 @@ namespace WorkTrackerWPFApp.Views
 
             GreetingMessage.Content = _greetingMessage;
         }
-
+        private void ClearError()
+        {
+            // Clear any existing error message before proceeding
+            ErrorMessageTextBlock.Visibility = Visibility.Collapsed;
+            ErrorMessageTextBlock.Text = string.Empty;
+        }
+        private void ShowError(string message)
+        {
+            ErrorMessageTextBlock.Text = message;
+            ErrorMessageTextBlock.Visibility = Visibility.Visible;
+        }
+        private void ShowSuccess(string message)
+        {
+            SuccessMessageTextBlock.Text = message;
+            SuccessMessageTextBlock.Visibility = Visibility.Visible;
+        }
         private async void OnViewReportClicked(object sender, RoutedEventArgs e)
         {
             Uri uri = new Uri(_configuration["FrontEndUrl"] ?? "https://localhost:4200/" + "core/my-work");

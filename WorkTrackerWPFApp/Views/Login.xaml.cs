@@ -12,6 +12,7 @@ using WorkTrackerDesktopWPFApp.Services;
 using WorkTrackerWPFApp.Views;
 using System.Windows.Media.Imaging;
 using WorkTrackerWPFApp.Responses;
+using WorkTrackerWPFApp.Services.Static;
 
 namespace WorkTrackerWPFApp
 {
@@ -30,11 +31,9 @@ namespace WorkTrackerWPFApp
                 .SetBasePath(currentDirectory)  // Dynamically set the base path to the current directory
                 .AddJsonFile(configFilePath, optional: false, reloadOnChange: true)  // Use the dynamically created path
                 .Build();
-            // Register the Closing event handler
             this.Closing += Window_Closing;
             _authService = new AuthService(new HttpClient(), _configuration);
         }
-        // Closing event handler
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             // Show a confirmation dialog before closing
@@ -55,7 +54,13 @@ namespace WorkTrackerWPFApp
                 System.Windows.Application.Current.Shutdown();
             }
         }
-        // Event handler for Eye Button (to toggle password visibility)
+        private string GetPassword()
+        {
+            // Get the password from the correct control
+            return PasswordBox.Visibility == Visibility.Visible
+                ? PasswordBox.Password
+                : PasswordTextBox.Text;
+        }
         private void OnEyeButtonClicked(object sender, RoutedEventArgs e)
         {
             if (PasswordTextBox.Visibility == Visibility.Collapsed) // Password is hidden, show it
@@ -89,75 +94,79 @@ namespace WorkTrackerWPFApp
                 };
             }
         }
-
-
-        // Handle the login button click
         private async void OnLoginClicked(object sender, RoutedEventArgs e)
         {
+            ClearError();
             string email = EmailTextBox.Text;
-            string password = PasswordBox.Password.Length > 0 ? PasswordBox.Password : PasswordTextBox.Text;
+            string password = GetPassword();
 
 
             // Validate email and password
             if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
             {
                 //ErrorMessageResponse.ShowErrorMessage("Email and Password cannot be empty", "Validation Error");
-                System.Windows.MessageBox.Show("Email and Password cannot be empty", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowError("Email and Password cannot be empty");
                 return;
             }
 
             if (!Regex.IsMatch(email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
             {
                 //ErrorMessageResponse.ShowErrorMessage("Please enter a valid email address.", "Invalid Email");
-                System.Windows.MessageBox.Show("Please enter a valid email address.", "Invalid Email", MessageBoxButton.OK, MessageBoxImage.Error);
+                ShowError("Please enter a valid email address.");
                 return;
             }
-
-            // Call the authentication service to perform login
-            var response = await _authService.LoginAsync(email, password);
-
-            if (response.Success)
+            try
             {
-                UserSessionService.Instance.Username = response.Username;
-                UserSessionService.Instance.UserId = response.UserId;
-                UserSessionService.Instance.SessionExpiration = response.LocalSessionExpireDate;
-                UserSessionService.Instance.Token = response.Token;
-                UserSessionService.Instance.Roles = response.Roles;
+                var response = await _authService.LoginAsync(email, password);
 
-                var mainPage = new WorkTracking();
-                mainPage.Show();
-                System.Windows.Application.Current.MainWindow = mainPage;
-
-                // Close this window and open the main window or dashboard
-                this.Hide();
-            }
-            else
-            {
-                System.Windows.MessageBox.Show("Invalid email or password", "Login Failed", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-        // Handle forgot password logic
-        private async void OnForgotPasswordClicked(object sender, RoutedEventArgs e)
-        {
-            var email = Microsoft.VisualBasic.Interaction.InputBox("Enter your email to reset password", "Forgot Password", "", -1, -1);
-
-            if (!string.IsNullOrWhiteSpace(email))
-            {
-                var response = await _authService.ResetPasswordAsync(email);
-
-                if (response.IsSuccessStatusCode)
+                if (response.Success)
                 {
-                    System.Windows.MessageBox.Show("Password reset instructions have been sent to your email.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    UserSessionService.Instance.Username = response.Username;
+                    UserSessionService.Instance.UserId = response.UserId;
+                    UserSessionService.Instance.SessionExpiration = response.LocalSessionExpireDate;
+                    UserSessionService.Instance.Token = response.Token;
+                    UserSessionService.Instance.Roles = response.Roles;
+
+                    var mainPage = new WorkTracking();
+                    mainPage.Show();
+                    // Close this window and open the main window or dashboard
+                    this.Hide();
                 }
                 else
                 {
-                    System.Windows.MessageBox.Show("There was an issue with the password reset. Please try again.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowError($"{response.Message}");
                 }
+
             }
-            else
+            catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("Email address cannot be empty.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                ShowError($"{ex.Message}");
             }
+           
+            
+        }
+        private async void OnForgotPasswordClicked(object sender, RoutedEventArgs e)
+        {
+            ForgotPassword forgotPasswordPage = new ForgotPassword();
+            forgotPasswordPage.Show();
+            this.Hide();
+        }
+        private void ClearError()
+        {
+            // Clear any existing error message before proceeding
+            ErrorMessageTextBlock.Visibility = Visibility.Collapsed;
+            ErrorMessageTextBlock.Text = string.Empty;
+        }
+        private void ShowError(string message)
+        {
+            ErrorMessageTextBlock.Text = message;
+            ErrorMessageTextBlock.Visibility = Visibility.Visible;
+        }
+        private void ShowSuccess(string message)
+        {
+            SuccessMessageTextBlock.Text = message;
+            SuccessMessageTextBlock.Visibility = Visibility.Visible;
         }
     }
 }
